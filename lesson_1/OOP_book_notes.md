@@ -4,9 +4,17 @@
 
 - Encapsulation is a way to protect data from unwanted manipulation. Encapsulation defines the boundaries in your program. By encapsulating data, data is kept in an object, where specific ways of interacting with that data are provided.
 
+- We can use private and protected methods to implement encapsulation. We want to limit the number of public methods available in a class to reduce the likelihood of unwanted manipulation from the outide world.
+
+- We also implement encapsulation by naming publicly available methods in a clear way that a user of that method can understand the method's inputs and outputs without having to understand how that method is implemented in the class.
+
 ## Polymorphism ##
 
 - Polymorphism is the ability to represent data in many different types.
+
+- Polymorphism allows code to treat many different objects the same, even if the different classes of those objects have very different implementations of a particular method.
+  - Polymorphism through inheritance: we could have the classes Animal, Cat and Dog. Both Cat and Dog inherit from Animal. Each of these classes has a #eat method. We could write a method to feed each animal, which calls #eat on any animal passed into our #feed_animal method. Our #feed_animal method doesn't need to know how #eat is implemented for each of those classes, it only needs to know that each class has an #eat method available to it (whether in its own class, inherited from a superclass, or mixed in from a module).
+  - Polymorphism through duck typing: duck typing is a way of implementing polymorphism that doesn't involve any inheritance. The key concept is the same as polymorphism through inheritance though, in that we want to be able to work with different classes with a single method without needing to understand the different ways those classes implement that method. In the example of a #prepare_wedding method, there may be many different kinds of preparers that need to prepare for the wedding such as the chef, decorator, and musician. The implementations of how each of those classes prepares for the wedding will be very different, but we want our Wedding class to be able to interact with each of the Chef, Decorator and Musician classes the same way, by asking each to #prepare_wedding. We can even pass each different class the Wedding object itself, and allow each prepared to grab the elements of the Wedding object's state that the preparer needs to know so that it can properly prepare for the wedding. This way, we don't have to know in our Wedding class what to pass to each different preparer, we just pass them all the Wedding object itself and allow the different implementations in the preparer classes to determine what instance variables to retrieve.
 
 ## Inheritance ##
 
