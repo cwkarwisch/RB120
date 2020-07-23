@@ -25,8 +25,6 @@ Verbs:
 
 =end
 
-require 'pry'
-
 class Board
   WINNING_MOVES = [
     [1, 2, 3],
@@ -38,12 +36,13 @@ class Board
     [1, 5, 9],
     [3, 5, 7]
   ]
+  MIDDLE_SQUARE = 5
 
   attr_reader :squares
 
   def initialize
     @squares = {}
-    (1..9).each { |key| @squares[key] = Square.new}
+    (1..9).each { |key| @squares[key] = Square.new }
   end
 
   def reset
@@ -52,6 +51,8 @@ class Board
     end
   end
 
+  # rubocop:disable Metrics/AbcSize
+  # rubocop:disable Metrics/MethodLength
   def draw
     puts "          |     |"
     puts "       #{squares[1]}  |  #{squares[2]}  |  #{squares[3]}"
@@ -65,6 +66,8 @@ class Board
     puts "       #{squares[7]}  |  #{squares[8]}  |  #{squares[9]}"
     puts "          |     |"
   end
+  # rubocop:enable Metrics/AbcSize
+  # rubocop:enable Metrics/MethodLength
 
   def []=(board_position, marker)
     squares[board_position].marker = marker
@@ -83,13 +86,6 @@ class Board
     join_with_or(open_moves)
   end
 
-  def join_with_or(array)
-    return "#{array[0]}" if array.size == 1
-    list = array.clone
-    last_item = list.pop
-    "#{list.join(', ')}, or #{last_item}"
-  end
-
   def winning_line?(marker)
     WINNING_MOVES.any? do |moves|
       moves.all? { |position| squares[position].marker == marker }
@@ -97,7 +93,16 @@ class Board
   end
 
   def full?
-    squares.none? { |_, square| square.empty?}
+    squares.none? { |_, square| square.empty? }
+  end
+
+  private
+
+  def join_with_or(array)
+    return array[0].to_s if array.size == 1
+    list = array.clone
+    last_item = list.pop
+    "#{list.join(', ')}, or #{last_item}"
   end
 end
 
@@ -107,7 +112,6 @@ class Square
   attr_accessor :marker
 
   def initialize(marker = INITIAL_MARKER)
-    # maybe a "status" to keep track of this square's mark?
     @marker = marker
   end
 
@@ -118,36 +122,14 @@ class Square
   def to_s
     marker
   end
-
 end
 
-class Player
-  attr_reader :marker
-
-  def initialize(marker)
-    @marker = marker
-  end
-end
+Player = Struct.new(:marker)
 
 class TTTGame
   def play
     display_welcome_message
-
-    loop do
-      display_board
-
-      loop do
-        current_player_moves
-        detect_winner
-        clear_screen_and_display_board if human_turn?
-        break if winner? || board.full?
-      end
-
-      display_result
-      break unless play_again?
-      reset
-    end
-
+    main_game
     display_goodbye_message
   end
 
@@ -199,8 +181,28 @@ class TTTGame
     display_board
   end
 
+  def main_game
+    loop do
+      display_board
+      player_move
+      display_result
+      break unless play_again?
+      reset
+    end
+  end
+
+  def player_move
+    loop do
+      current_player_moves
+      detect_winner
+      clear_screen_and_display_board if human_turn?
+      break if winner? || board.full?
+    end
+  end
+
   def human_moves
-    prompt "Choose a square from the following: #{board.list_of_open_board_positions}"
+    prompt "Choose a square from the following: \
+#{board.list_of_open_board_positions}"
     choice = ""
     loop do
       choice = gets.chomp.to_i
@@ -216,6 +218,8 @@ class TTTGame
     choice = board.empty_board_positions.sample
     board[choice] = computer.marker
   end
+
+
 
   def display_result
     clear_screen_and_display_board
@@ -263,11 +267,11 @@ class TTTGame
   end
 
   def flip_current_player
-    if human_turn?
-      self.current_player = computer
-    else
-      self.current_player = human
-    end
+    self.current_player = if human_turn?
+                            computer
+                          else
+                            human
+                          end
   end
 
   def human_turn?
