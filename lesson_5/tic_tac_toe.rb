@@ -1,29 +1,4 @@
-=begin
-
-- In TTT, we start with an empty board with 9 spaces.
-
-- There are two moves, but each player can only make one kind
-  of moce, either x or o.
-
-- Each player takes a turn making a move.
-
-- A player wins when they have made three moves that form a
-  straight line on the board. There are 8 possible winning
-  combinations. 3 horizontal, 3 vertical, and 2 diagonal.
-
-- When a player makes a move, the board is updated to
-  show which square the player marked.
-
-Nouns:
-  - board
-  - move
-
-Verbs:
-  - mark
-  - start
-  - straight line
-
-=end
+require 'pry'
 
 class Board
   WINNING_MOVES = [
@@ -37,6 +12,7 @@ class Board
     [3, 5, 7]
   ]
   MIDDLE_SQUARE = 5
+  CORNERS = [1, 3, 7, 9]
 
   attr_reader :squares
 
@@ -96,6 +72,54 @@ class Board
     squares.none? { |_, square| square.empty? }
   end
 
+  def middle_square_open?
+    squares[MIDDLE_SQUARE].marker == Square::INITIAL_MARKER
+  end
+
+  def winning_move_available?(marker_being_checked)
+    WINNING_MOVES.any? do |line|
+      winning_move_in_line?(line, marker_being_checked)
+    end
+  end
+
+  def winning_move_in_line?(line, marker_being_checked)
+    marker_being_checked_count = 0
+    empty_marker_count = 0
+    line.each do |position|
+      if squares[position].marker == marker_being_checked
+        marker_being_checked_count += 1
+      elsif squares[position].marker == Square::INITIAL_MARKER
+        empty_marker_count += 1
+      end
+    end
+    marker_being_checked_count == 2 && empty_marker_count == 1 ? true : false
+  end
+
+  def find_winning_move(marker_being_checked)
+    WINNING_MOVES.each do |line|
+      if winning_move_in_line?(line, marker_being_checked)
+        line.each do |position|
+          if squares[position].marker == Square::INITIAL_MARKER
+            return position
+          end
+        end
+      end
+    end
+  end
+
+  def corner_available?
+    open_moves = empty_board_positions
+    CORNERS.any? do |corner|
+      open_moves.include?(corner)
+    end
+  end
+
+  def unmarked_corners
+    empty_board_positions.select do |position|
+      CORNERS.include?(position)
+    end
+  end
+
   private
 
   def join_with_or(array)
@@ -124,7 +148,7 @@ class Square
   end
 end
 
-Player = Struct.new(:marker)
+Player = Struct.new(:marker, :score, :name)
 
 class TTTGame
   def play
@@ -135,19 +159,14 @@ class TTTGame
 
   private
 
-  HUMAN_MARKER = 'O'
-  COMPUTER_MARKER = 'X'
-
-  attr_accessor :winner, :current_player
-  attr_reader :board, :human, :computer, :first_to_move
+  attr_accessor :winner, :current_player, :first_to_move
+  attr_reader :board, :human, :computer
 
   def initialize
     @board = Board.new
-    @human = Player.new(HUMAN_MARKER)
-    @computer = Player.new(COMPUTER_MARKER)
+    @human = Player.new(nil, 0, nil)
+    @computer = Player.new(nil, 0, nil)
     @winner = nil
-    @first_to_move = human
-    @current_player = first_to_move
   end
 
   def prompt(message)
@@ -169,6 +188,83 @@ class TTTGame
     puts ""
   end
 
+  def choose_first_to_move
+    choice = nil
+    loop do
+      prompt "Which player should make the first move?"
+      prompt "Enter 'u' for the user, 'c' for the computer, or 'r' for random."
+      choice = gets.chomp.downcase
+      puts ""
+      break if %w(u c r).include?(choice)
+      prompt "That's an invalid choice. Enter 'u', 'c', or 'r'.\n\n"
+    end
+    save_first_to_move(choice)
+  end
+
+  def save_first_to_move(choice)
+    case choice
+    when 'u' then self.first_to_move = human
+    when 'c' then self.first_to_move = computer
+    when 'r' then self.first_to_move = [human, computer].sample
+    end
+    self.current_player = first_to_move
+  end
+
+  def choose_marker
+    choice = nil
+    loop do
+      prompt "What marker would you like to use? 'X' or 'O'?"
+      choice = gets.chomp.downcase
+      puts ""
+      break if %w(x o).include?(choice)
+      prompt "That's an invalid choice. Enter 'X' or 'O'."
+      puts ""
+    end
+    save_marker_choice(choice)
+  end
+
+  def save_marker_choice(choice)
+    case choice
+    when 'x'
+      human.marker = 'X'
+      computer.marker = 'O'
+    when 'o'
+      human.marker = 'O'
+      computer.marker = 'X'
+    end
+  end
+
+  def choose_names
+    choose_player_name
+    choose_computer_name
+  end
+
+  def choose_player_name
+    choice = nil
+    loop do
+      prompt "What's your name?"
+      choice = gets.chomp
+      puts ""
+      break if !choice.empty?
+      prompt "That's an invalid choice. Please enter your name."
+      puts ""
+    end
+    human.name = choice
+  end
+
+  def choose_computer_name
+    choice = nil
+    loop do
+      prompt "What would you like the computer's name to be?"
+      choice = gets.chomp
+      puts ""
+      break if !choice.empty?
+      prompt "That's an invalid choice. Please enter a name for the computer."
+      puts ""
+    end
+    computer.name = choice
+  end
+
   def display_board
     prompt "You're a #{human.marker} and the computer is a #{computer.marker}."
     puts ""
@@ -182,13 +278,29 @@ class TTTGame
   end
 
   def main_game
+    user_choices
     loop do
       display_board
       player_move
       display_result
+      display_score
+      break if human.score == 5 || computer.score == 5
       break unless play_again?
       reset
     end
+  end
+
+  def user_choices
+    choose_names
+    choose_first_to_move
+    choose_marker
+  end
+
+  def display_score
+    prompt "The score is:"
+    prompt "#{human.name}: #{human.score}"
+    prompt "#{computer.name}: #{computer.score}"
+    puts ""
   end
 
   def player_move
@@ -215,11 +327,37 @@ class TTTGame
   end
 
   def computer_moves
+    if board.winning_move_available?(computer.marker)
+      computer_winning_move
+    elsif board.winning_move_available?(human.marker)
+      computer_defensive_move
+    elsif board.corner_available?
+      computer_mark_random_corner
+    else
+      computer_random_move
+    end
+  end
+
+  def computer_opening_move
+    board[Board::MIDDLE_SQUARE] = computer.marker
+  end
+
+  def computer_winning_move
+    board[board.find_winning_move(computer.marker)] = computer.marker
+  end
+
+  def computer_defensive_move
+    board[board.find_winning_move(human.marker)] = computer.marker
+  end
+
+  def computer_mark_random_corner
+    board[board.unmarked_corners.sample] = computer.marker
+  end
+
+  def computer_random_move
     choice = board.empty_board_positions.sample
     board[choice] = computer.marker
   end
-
-
 
   def display_result
     clear_screen_and_display_board
@@ -236,10 +374,12 @@ class TTTGame
   end
 
   def detect_winner
-    if board.winning_line?(HUMAN_MARKER)
+    if board.winning_line?(human.marker)
       self.winner = human
-    elsif board.winning_line?(COMPUTER_MARKER)
+      human.score += 1
+    elsif board.winning_line?(computer.marker)
       self.winner = computer
+      computer.score += 1
     end
   end
 
