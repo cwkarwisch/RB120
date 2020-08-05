@@ -1,21 +1,17 @@
 class Deck
   def initialize
-    @array = []
+    @cards = []
     create_deck
-    shuffle_deck
+    shuffle_deck!
   end
 
   def deal_card
-    array.pop
-  end
-
-  def number_of_cards_left
-    array.size
+    cards.pop
   end
 
   private
 
-  attr_accessor :array
+  attr_accessor :cards
 
   CARD_FACES = %w(2 3 4 5 6 7 8 9 10 Jack Queen King Ace)
   SUITS = %w(Hearts Spades Clubs Diamonds)
@@ -23,13 +19,13 @@ class Deck
   def create_deck
     CARD_FACES.each do |face|
       SUITS.each do |suit|
-        array << Card.new(face, suit)
+        cards << Card.new(face, suit)
       end
     end
   end
 
-  def shuffle_deck
-    array.shuffle!
+  def shuffle_deck!
+    cards.shuffle!
   end
 end
 
@@ -38,14 +34,6 @@ class Card
 
   def ace?
     face == 'Ace'
-  end
-
-  def eleven?
-    value == 11
-  end
-
-  def update_value
-    self.value = 1 if ace?
   end
 
   private
@@ -68,12 +56,11 @@ class Card
     'King' => 10,
     'Ace' => 11
   }
-end
-
-def initialize(face, suit)
-  @face = face
-  @suit = suit
-  @value = CARD_VALUES[face]
+  def initialize(face, suit)
+    @face = face
+    @suit = suit
+    @value = CARD_VALUES[face]
+  end
 end
 
 class Player
@@ -109,6 +96,10 @@ class Player
     @hand = []
   end
 
+  def place_new_card_in_hand(card)
+    hand << card
+  end
+
   private
 
   def initialize
@@ -120,34 +111,11 @@ class Player
     hand.each do |card|
       score += card.value
     end
-    while score > 21 && ace_in_hand? && at_least_one_ace_equals_11?
-      update_value_of_ace
-      score = recalculate_score
+    select_all_aces.size.times do
+      break if score <= 21
+      score -= 10
     end
     score
-  end
-
-  def recalculate_score
-    score = 0
-    hand.each do |card|
-      score += card.value
-    end
-    score
-  end
-
-  def at_least_one_ace_equals_11?
-    aces = select_all_aces
-    aces.any?(&:eleven?)
-  end
-
-  def update_value_of_ace
-    aces = select_all_aces
-    aces.each do |ace|
-      if ace.eleven?
-        ace.update_value
-        break
-      end
-    end
   end
 
   def select_all_aces
@@ -171,20 +139,12 @@ class TwentyOneGame
     display_goodbye_message
   end
 
-  def status
-    p human.hand
-    puts "player's hand is worth: #{human.score}"
-    p dealer.hand
-    puts "dealer's hand is worth: #{dealer.score}"
-    puts "cards left in deck: #{deck.number_of_cards_left}"
-  end
-
   private
 
   BUSTING_SCORE = 22
   DEALER_STOP_HITTING_SCORE = 17
 
-  attr_accessor :deck, :player_wants_to_hit, :dealer_must_stay
+  attr_accessor :deck
   attr_reader :human, :dealer
 
   def initialize
@@ -213,8 +173,8 @@ class TwentyOneGame
 
   def deal_opening_hand
     2.times do
-      human.hand << deck.deal_card
-      dealer.hand << deck.deal_card
+      human.place_new_card_in_hand(deck.deal_card)
+      dealer.place_new_card_in_hand(deck.deal_card)
     end
   end
 
@@ -227,10 +187,9 @@ class TwentyOneGame
 
   def player_turn
     loop do
-      hit_or_stay
-      player_hit if player_wants_to_hit
+      break unless hit?
+      player_hit
       break if bust?(human)
-      break if !player_wants_to_hit
     end
   end
 
@@ -261,6 +220,7 @@ class TwentyOneGame
   end
 
   def handle_win
+    return if bust?(human) || bust?(dealer)
     if human.score > dealer.score
       display_card_comparison
       display_player_wins_message
@@ -288,21 +248,15 @@ class TwentyOneGame
 
   def reset_game
     reset_deck
-    reset_player_hand
-    reset_dealer_hand
-    @player_wants_to_hit = nil
-    @dealer_must_stay = nil
+    reset_hands
   end
 
   def reset_deck
     @deck = Deck.new
   end
 
-  def reset_player_hand
+  def reset_hands
     human.clear_hand
-  end
-
-  def reset_dealer_hand
     dealer.clear_hand
   end
 
@@ -330,12 +284,12 @@ add up to #{dealer.score}."
   end
 
   def player_hit
-    human.hand << deck.deal_card
+    human.place_new_card_in_hand(deck.deal_card)
     display_player_dealt_card
     display_player_score
   end
 
-  def hit_or_stay
+  def hit?
     choice = nil
     loop do
       prompt "Would you like to hit or stay? ('h' or 's')"
@@ -344,7 +298,7 @@ add up to #{dealer.score}."
       break if %w(h s).include?(choice)
       prompt "Sorry that is an invalid choice. Please enter 'h' or 's'.\n\n"
     end
-    self.player_wants_to_hit = (choice == 'h')
+    choice == 'h'
   end
 
   def bust?(player)
@@ -368,8 +322,7 @@ add up to #{dealer.score}."
     display_dealer_score
     loop do
       dealer_makes_move
-      dealer_score_check
-      break if dealer_must_stay
+      break if dealer_stay?
     end
   end
 
@@ -379,17 +332,17 @@ add up to #{dealer.score}."
   end
 
   def dealer_makes_move
-    dealer_stay? ? dealer_stay : dealer_hit
+    dealer_stay? ? display_dealer_stay : dealer_hit
   end
 
   def dealer_hit
     prompt "The Dealer draws..."
-    dealer.hand << deck.deal_card
+    dealer.place_new_card_in_hand(deck.deal_card)
     display_dealer_dealt_card
     display_dealer_score
   end
 
-  def dealer_stay
+  def display_dealer_stay
     prompt "The Dealer stays...\n\n"
   end
 
@@ -399,10 +352,6 @@ add up to #{dealer.score}."
 
   def display_dealer_dealt_card
     prompt "The Dealer is dealt a #{dealer.display_dealt_card}."
-  end
-
-  def dealer_score_check
-    self.dealer_must_stay = true if dealer_stay?
   end
 
   def display_player_score
